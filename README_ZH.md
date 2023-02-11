@@ -149,7 +149,7 @@ npm run dev
 
 然后点击下面的一键部署按钮进行部署。
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/BHJD6L?referralCode=FaJtD_)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/WJFWwy?referralCode=75ywV1)
 
 完成一些验证操作后，就可以开始部署了。您将看到以下界面：
 
