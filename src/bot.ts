@@ -1,7 +1,7 @@
-import { ChatGPTPool } from "./chatgpt.js";
-import { config } from "./config.js";
-import { ContactInterface, RoomInterface } from "wechaty/impls";
-import { Message } from "wechaty";
+import { ChatGPTPool } from './chatgpt.js';
+import { config } from './config.js';
+import { ContactInterface, RoomInterface } from 'wechaty/impls';
+import { Message } from 'wechaty';
 enum MessageType {
   Unknown = 0,
 
@@ -28,7 +28,7 @@ export class ChatGPTBot {
   // Record talkid with conversation id
   chatGPTPool = new ChatGPTPool();
   chatPrivateTiggerKeyword = config.chatPrivateTiggerKeyword;
-  botName: string = "";
+  botName: string = '';
   ready = false;
   setBotName(botName: string) {
     this.botName = botName;
@@ -47,14 +47,11 @@ export class ChatGPTBot {
   // remove more times conversation and mention
   cleanMessage(rawText: string, privateChat: boolean = false): string {
     let text = rawText;
-    const item = rawText.split("- - - - - - - - - - - - - - -");
+    const item = rawText.split('- - - - - - - - - - - - - - -');
     if (item.length > 1) {
       text = item[item.length - 1];
     }
-    text = text.replace(
-      privateChat ? this.chatPrivateTiggerKeyword : this.chatGroupTiggerKeyword,
-      ""
-    );
+    text = text.replace(privateChat ? this.chatPrivateTiggerKeyword : this.chatGroupTiggerKeyword, '');
     // remove more text via - - - - - - - - - - - - - - -
     return text;
   }
@@ -62,10 +59,7 @@ export class ChatGPTBot {
     return await this.chatGPTPool.sendMessage(text, talkerId);
   }
   // The message is segmented according to its size
-  async trySay(
-    talker: RoomInterface | ContactInterface,
-    mesasge: string
-  ): Promise<void> {
+  async trySay(talker: RoomInterface | ContactInterface, mesasge: string): Promise<void> {
     const messages: Array<string> = [];
     let message = mesasge;
     while (message.length > SINGLE_MESSAGE_MAX_SIZE) {
@@ -82,9 +76,7 @@ export class ChatGPTBot {
     const chatPrivateTiggerKeyword = this.chatPrivateTiggerKeyword;
     let triggered = false;
     if (privateChat) {
-      triggered = chatPrivateTiggerKeyword
-        ? text.includes(chatPrivateTiggerKeyword)
-        : true;
+      triggered = chatPrivateTiggerKeyword ? text.includes(chatPrivateTiggerKeyword) : true;
     } else {
       triggered = text.includes(this.chatGroupTiggerKeyword);
     }
@@ -94,24 +86,20 @@ export class ChatGPTBot {
     return triggered;
   }
   // Filter out the message that does not need to be processed
-  isNonsense(
-    talker: ContactInterface,
-    messageType: MessageType,
-    text: string
-  ): boolean {
+  isNonsense(talker: ContactInterface, messageType: MessageType, text: string): boolean {
     return (
       talker.self() ||
       // TODO: add doc support
       messageType !== MessageType.Text ||
-      talker.name() == "微信团队" ||
+      talker.name() == '微信团队' ||
       // 语音(视频)消息
-      text.includes("收到一条视频/语音聊天消息，请在手机上查看") ||
+      text.includes('收到一条视频/语音聊天消息，请在手机上查看') ||
       // 红包消息
-      text.includes("收到红包，请在手机上查看") ||
+      text.includes('收到红包，请在手机上查看') ||
       // Transfer message
-      text.includes("收到转账，请在手机上查看") ||
+      text.includes('收到转账，请在手机上查看') ||
       // 位置消息
-      text.includes("/cgi-bin/mmwebwx-bin/webwxgetpubliclinkimg")
+      text.includes('/cgi-bin/mmwebwx-bin/webwxgetpubliclinkimg')
     );
   }
 
@@ -121,14 +109,12 @@ export class ChatGPTBot {
     await this.trySay(talker, gptMessage);
   }
 
-  async onGroupMessage(
-    talker: ContactInterface,
-    text: string,
-    room: RoomInterface
-  ) {
-    const talkerId = room.id + talker.id;
+  roomTalkMoal: Record<string, '群聊' | '每个人独立'> = {};
+  async onGroupMessage(talker: ContactInterface, text: string, room: RoomInterface) {
+    const isRoomAll = this.roomTalkMoal[room.id] === '群聊';
+    const talkerId = isRoomAll ? room.id : room.id + talker.id;
     const gptMessage = await this.getGPTMessage(text, talkerId);
-    const result = `${text}\n ------\n ${gptMessage}`;
+    const result = `${isRoomAll ? '' : `${text.substring(0, 20)}\n ------\n `}${gptMessage}`;
     await this.trySay(room, result);
   }
   async onMessage(message: Message) {
@@ -140,11 +126,20 @@ export class ChatGPTBot {
     if (this.isNonsense(talker, messageType, rawText)) {
       return;
     }
-    if (this.tiggerGPTMessage(rawText, privateChat)) {
+    const isRoomAll = room && this.roomTalkMoal[room.id] === '群聊';
+    if (this.tiggerGPTMessage(rawText, privateChat) || isRoomAll) {
       const text = this.cleanMessage(rawText, privateChat);
       if (privateChat) {
         return await this.onPrivateMessage(talker, text);
       } else {
+        if (text === '群聊模式') {
+          this.roomTalkMoal[room.id] = '群聊';
+          return;
+        }
+        if (['关闭群聊模式', '停止群聊模式', '关闭群聊', '停止群聊'].includes(text)) {
+          this.roomTalkMoal[room.id] = '每个人独立';
+          return;
+        }
         return await this.onGroupMessage(talker, text, room);
       }
     } else {

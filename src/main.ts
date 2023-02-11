@@ -1,40 +1,48 @@
-import { WechatyBuilder } from "wechaty";
-import QRCode from "qrcode";
-import { ChatGPTBot } from "./bot.js";
+import { WechatyBuilder } from 'wechaty';
+import QRCode from 'qrcode';
+import { ChatGPTBot } from './bot.js';
 const chatGPTBot = new ChatGPTBot();
 
-const bot =  WechatyBuilder.build({
-  name: "wechat-assistant", // generate xxxx.memory-card.json and save login data for the next login
+const bot = WechatyBuilder.build({
+  name: 'wechat-assistant', // generate xxxx.memory-card.json and save login data for the next login
   puppetOptions: {
     uos: true, // 开启uos协议
   },
-  puppet: "wechaty-puppet-wechat",
+  puppet: 'wechaty-puppet-wechat',
 });
 // get a Wechaty instance
 
 async function main() {
   await chatGPTBot.startGPTBot();
+  let isOpen = true;
   bot
-    .on("scan", async (qrcode, status) => {
+    .on('scan', async (qrcode, status) => {
       const url = `https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`;
       console.log(`Scan QR Code to login: ${status}\n${url}`);
-      console.log(
-        await QRCode.toString(qrcode, { type: "terminal", small: true })
-      );
+      console.log(await QRCode.toString(qrcode, { type: 'terminal', small: true }));
     })
-    .on("login", async (user) => {
+    .on('login', async (user) => {
       console.log(`User ${user} logged in`);
       chatGPTBot.setBotName(user.name());
     })
-    .on("message", async (message) => {
+    .on('message', async (message) => {
       if (!chatGPTBot.ready) {
         return;
       }
-      if (message.text().startsWith("/ping")) {
-        await message.say("pong");
+      if (message.text().startsWith('/ping')) {
+        await message.say('pong');
         return;
       }
       try {
+        if (message.text() === process.env.WECHAT_BOT_CLOSE_KEYWORD) {
+          isOpen = false;
+          return;
+        }
+        if (message.text() === process.env.WECHAT_BOT_OPEN_KEYWORD) {
+          isOpen = true;
+          return;
+        }
+        if (!isOpen) return;
         console.log(`Message: ${message}`);
         await chatGPTBot.onMessage(message);
       } catch (e) {
@@ -44,9 +52,7 @@ async function main() {
   try {
     await bot.start();
   } catch (e) {
-    console.error(
-      `⚠️ Bot start failed, can you log in through wechat on the web?: ${e}`
-    );
+    console.error(`⚠️ Bot start failed, can you log in through wechat on the web?: ${e}`);
   }
 }
 main();
