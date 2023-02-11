@@ -6,7 +6,8 @@
   "export": "dist/main.js",
   "scripts": {
     "dev": "nodemon --exec node --watch config.yaml --loader ts-node/esm src/main.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "start": "node --loader ts-node/esm src/main.ts"
   },
   "author": "",
   "license": "ISC",
